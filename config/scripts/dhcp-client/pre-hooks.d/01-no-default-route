@@ -1,0 +1,36 @@
+RUN="yes"
+
+# Use FD 19 to capture the debug stream caused by "set -x":
+exec 19>/tmp/01-no-default-route.log
+
+# Tell bash about it  (there's nothing special about 19, its arbitrary)
+export BASH_XTRACEFD=19
+
+set -x
+
+# Setting new_routers to an empty string avoids the installation
+# of the default roots and allows to properly setup failover rules.
+# That applies only to eth1, the main WAN getting the IP via dhcp.
+#
+# See /config/scripts/setup-failover-routes.sh
+# See /config/scripts/dhcp-client/post-hooks.d/01-failover
+# See https://vyos.dev/T5724
+
+if [ "$RUN" = "yes" ]; then
+    if [ "$interface" = "eth1" ]; then
+        case "$reason" in
+            BOUND|RENEW|REBIND|REBOOT)
+                export new_gw="$new_routers"
+                export old_gw="$old_routers"
+                new_routers=""
+                ;;
+
+            EXPIRE|FAIL|STOP)
+                old_ip_address=""
+                old_routers=""
+                ;;
+        esac
+    fi
+fi
+
+set +x

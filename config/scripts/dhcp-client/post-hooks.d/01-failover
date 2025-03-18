@@ -1,0 +1,29 @@
+RUN="yes"
+
+# Use FD 19 to capture the debug stream caused by "set -x":
+exec 19>/tmp/01-failover.log
+
+# Tell bash about it  (there's nothing special about 19, its arbitrary)
+export BASH_XTRACEFD=19
+
+set -x
+
+# Execute the script to configure the failover mechanism in case of a
+# BOUND, RENEW, REBIND, REBOOT.
+# That applies only to eth1, the main WAN getting the IP via dhcp.
+#
+# See /config/scripts/setup-failover-routes.sh
+# See /config/scripts/dhcp-client/pre-hooks.d/01-no-default-route
+# See https://vyos.dev/T5724
+
+if [ "$RUN" = "yes" ]; then
+    if [ "$interface" = "eth1" ]; then
+        case $reason in
+            BOUND|RENEW|REBIND|REBOOT)
+            sudo /config/scripts/setup-failover-routes.sh $old_gw $new_gw
+            ;;
+        esac
+    fi
+fi
+
+set +x
